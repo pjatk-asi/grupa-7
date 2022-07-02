@@ -7,3 +7,4 @@ dependencies:
   - pandas=1.4.3
   - scikit-learn=1.1.1
   - xgboost=1.5.1
+  - mlflow
