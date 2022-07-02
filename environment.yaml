@@ -1,9 +1,0 @@
-name: asi-final-project
-channels:
-  - defaults
-  - conda-forge
-dependencies:
-  - numpy=1.23.0
-  - pandas=1.4.3
-  - scikit-learn=1.1.1
-  - xgboost=1.5.1
