@@ -9,7 +9,7 @@ import pandas
 import xgboost
 from numpy import sqrt
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -21,10 +21,17 @@ def save_model(file_name, model):
     pickle.dump(model, file)
 
 
-def save_evaluation(file_name, datetime, rmse, r2):
-    evaluations = pandas.DataFrame(columns=['datetime', 'rmse', 'r2'])
+def evaluate(actual, predictions):
+    rmse = sqrt(mean_squared_error(actual, predictions))
+    mae = mean_absolute_error(actual, predictions)
+    r2 = r2_score(actual, predictions)
+    return rmse, mae, r2
+
+
+def save_evaluation(file_name, datetime, rmse, mae, r2):
+    evaluations = pandas.DataFrame(columns=['datetime', 'rmse', 'mae', 'r2'])
     evaluations = evaluations.append(
-        {'datetime': datetime, 'rmse': rmse, 'r2': r2}, ignore_index=True)
+        {'datetime': datetime, 'rmse': rmse, 'mae': mae, 'r2': r2}, ignore_index=True)
     print(evaluations)
     if os.path.isfile(file_name):
         evaluations.to_csv(file_name, index=False, mode='a', header=False)
@@ -70,7 +77,7 @@ def check_model(file_name):
         f'Root Main Square Error check: {rmse_parameter_check}, R2 check: {r2_parameter_check}')
 
 
-def process_csv(csv_uri):
+def process_csv(csv_uri, logistic_regression_penalty, logistic_regression_tol, logistic_regression_solver, xgboost_colsample_bytree, xgboost_learning_rate, xgboost_max_depth, xgboost_alpha, xgboost_n_estimators, xgboost_min_child_width):
     pandas.set_option('mode.chained_assignment', None)
 
     # Enable logging
@@ -118,12 +125,13 @@ def process_csv(csv_uri):
     y = training[target].values.reshape(-1, 1)
 
     # Generate Logistic Regression model
-    logistic_regression = LogisticRegression(penalty="l2", tol=0.05, solver="saga")
+    logistic_regression = LogisticRegression(
+        penalty=logistic_regression_penalty, tol=logistic_regression_tol, solver=logistic_regression_solver)
     logistic_regression.fit(x, y)
 
     # Generate XGBoost model
-    xg_boost = xgboost.XGBClassifier(objective='binary:logistic', colsample_bytree=0.2,
-                                     learning_rate=0.02, max_depth=5, alpha=4, n_estimators=1000, min_child_weight=4000)
+    xg_boost = xgboost.XGBClassifier(objective='binary:logistic', colsample_bytree=xgboost_colsample_bytree,
+                                     learning_rate=xgboost_learning_rate, max_depth=xgboost_max_depth, alpha=xgboost_alpha, n_estimators=xgboost_n_estimators, min_child_weight=xgboost_min_child_width)
     xg_boost.fit(x, y)
 
     # Save generated models
@@ -139,26 +147,33 @@ def process_csv(csv_uri):
     logistic_regression_predictions = logistic_regression.predict(x_test)
     xg_boost_predictions = xg_boost.predict(x_test)
 
-    # Root Main Square Error for Logistic Regression
-    logistic_regression_rmse = sqrt(mean_squared_error(
-        y_test, logistic_regression_predictions))
+    # Root Mean Squared Error for Logistic Regression
+    # Mean Absolute Error for Logistic Regression
     # R2 Score for Logistic Regression
-    logistic_regression_r2 = r2_score(y_test, logistic_regression_predictions)
+    (logistic_regression_rmse, logistic_regression_mae,
+     logistic_regression_r2) = evaluate(y_test, logistic_regression_predictions)
+
     print(
-        f'Logistic Regression (Root Main Square Error: {logistic_regression_rmse}, R2: {logistic_regression_r2})')
+        f'Logistic Regression (Root for Mean Squared Error: {logistic_regression_rmse}, Mean Absolute Error: {logistic_regression_mae}, R2 Score: {logistic_regression_r2})')
 
     logistic_regression_evaluation_file_name = 'evaluation/logistic-regression.csv'
     save_evaluation(logistic_regression_evaluation_file_name, now,
-                    logistic_regression_rmse, logistic_regression_r2)
+                    logistic_regression_rmse, logistic_regression_mae, logistic_regression_r2)
     check_model(logistic_regression_evaluation_file_name)
 
-    # Root Main Square Error for Logistic Regression
-    xgboost_rmse = sqrt(mean_squared_error(y_test, xg_boost_predictions))
-    # R2 Score for Logistic Regression
+    # Root Main Square Error for XGBoost
+    # Mean Absolute Error for XGBoost
+    # R2 Score for Logistic XGBoost
+    (xgboost_rmse, xgboost_mae, xgboost_r2) = evaluate(
+        y_test, xg_boost_predictions)
+
     xgboost_r2 = r2_score(y_test, xg_boost_predictions)
     print(
-        f'XGBoost (Root Main Square Error: {xgboost_rmse}, R2: {xgboost_r2})')
+        f'XGBoost (Root Mean Squared Error: {xgboost_rmse}, Mean Abosolute Error: {xgboost_mae}, R2 Score: {xgboost_r2})')
 
     xgboost_evaluation_file_name = 'evaluation/xgboost.csv'
-    save_evaluation(xgboost_evaluation_file_name, now, xgboost_rmse, xgboost_r2)
+    save_evaluation(xgboost_evaluation_file_name,
+                    now, xgboost_rmse, xgboost_mae, xgboost_r2)
     check_model(xgboost_evaluation_file_name)
+
+    return logistic_regression, logistic_regression_rmse, logistic_regression_mae, logistic_regression_r2, xg_boost, xgboost_rmse, xgboost_mae, xgboost_r2

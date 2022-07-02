@@ -1,0 +1,17 @@
+name: tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      logistic_regression_penalty: {type: string, default: "l2"}
+      logistic_regression_tol: {type: float, default: 0.05}
+      logistic_regression_solver: {type: string, default: "saga"}
+      xgboost_colsample_bytree: {type: float, default: 0.2}
+      xgboost_learning_rate: {type: float, default: 0.02}
+      xgboost_max_depth: {type: int, default: 5}
+      xgboost_alpha: {type: int, default: 4}
+      xgboost_n_estimators: {type: int, default: 1000}
+      xgboost_min_child_width: {type: int, default: 4000}
+    command: "python train.py {logistic_regression_penalty} {logistic_regression_tol} {logistic_regression_solver} {xgboost_colsample_bytree} {xgboost_learning_rate} {xgboost_max_depth} {xgboost_alpha} {xgboost_n_estimators} {xgboost_min_child_width}"
